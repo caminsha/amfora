@@ -33,3 +33,9 @@ uninstall:
 .PHONY: fmt
 fmt:
 	go fmt ./...
+
+.PHONY: localinstall
+localinstall: amfora amfora.desktop
+	install -Dm 755 amfora ${HOME}/bin/amfora
+	install -Dm 644 amfora.desktop ${HOME}/.local/share/applications/amfora.desktop
+
