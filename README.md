@@ -47,6 +47,14 @@ Arch Linux users can install Amfora using pacman.
 sudo pacman -S amfora
 ```
 
+### Void Linux
+
+Void Linux users can install Amfora using xbps.
+
+```
+sudo xbps-install amfora
+```
+
 ### Homebrew
 
 If you use [Homebrew](https://brew.sh/), you can install Amfora through the my personal tap.
@@ -61,7 +69,7 @@ brew upgrade amfora
 
 ### KISS Linux
 
-[KISS](k1ss.org) Linux users can install Amfora from jedahan's repository.
+[KISS](https://k1ss.org) Linux users can install Amfora from jedahan's repository.
 
 Add jedahan's kiss repository:
 ```
@@ -147,6 +155,8 @@ Features in *italics* are in the master branch, but not in the latest release.
 - [x] Subscriptions
   - Subscribing to RSS, Atom, and [JSON Feeds](https://jsonfeed.org/) are all supported
   - So is subscribing to a page, to know when it changes
+- [x] Open non-text files in another application
+  - [x] Ability to stream content instead of downloading it first
 - [ ] Stream support
 - [ ] Table of contents for pages
 - [ ] Search in pages with <kbd>Ctrl-F</kbd>
@@ -157,18 +167,10 @@ Features in *italics* are in the master branch, but not in the latest release.
 ## Usage & Configuration
 Please see [the wiki](https://github.com/makeworld-the-better-one/amfora/wiki) for an introduction on how to use Amfora and configure it.
 
-
-## Known Bugs
-
-- Pasting on Windows is truncated, the full paste content won't be added. ([#43](https://github.com/makeworld-the-better-one/amfora/issues/43))
-
-You can also check out [all the issues with the bug label](https://github.com/makeworld-the-better-one/amfora/issues?q=is%3Aopen+is%3Aissue+label%3Abug).
-
-
 ## Libraries
 Amfora ❤️ open source!
 
-- [cview](https://gitlab.com/tslocum/cview/) for the TUI
+- My [cview fork](https://gitlab.com/makeworld-the-better-one/cview/) for the TUI - pull request [here](https://gitlab.com/tslocum/cview/-/merge_requests/12)
   - It's a fork of [tview](https://github.com/rivo/tview) with PRs merged and active support
   - It uses [tcell](https://github.com/gdamore/tcell) for low level terminal operations
 - [Viper](https://github.com/spf13/viper) for configuration and TOFU storing

@@ -4,12 +4,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.8.0] - 2021-02-17
 ### Added
+- **Media type handlers** - open non-text files in another application (#121, #134)
 - Ability to set custom keybindings in config (#135)
+- Added scrollbar, by default only appears on pages that go off-screen (#89, #107)
+- More internal about pages, see `about:about` (#160, #187)
+
+### Changed
+- Update cview to `d776e728ef6d2a9990a5cd86a70b31f0678613e2` for large performance and feature updates (#107)
+- Update to tcell v2 (dependency of cview)
+- Display page even if mediatype params are malformed (#141)
+- Sensitive input fields (status code 11) display with asterisks over the text (#106)
 
 ### Fixed
 - Don't use cache when URL is typed in bottom bar (#159)
+- Fix downloading of pages that are too large or timed out
+- `about:` URLs can be typed into the bottom bar (#167)
+- Bookmarks modal closes on ESC like the others (#173)
+- Handle empty META string (#176)
+- Whitespace around the URL entered in the bottom bar is stripped (#184)
+- Don't break visiting IPv6 hosts when port 1965 is specified (#195)
+- More reliable start, no more flash of unindented text, or text that stays unindented (#107)
+- Pages with ANSI resets don't use the terminal's default text and background colors (#107)
+- ANSI documents don't leak color into the left margin (#107)
+- Rendering very long documents is now ~96% faster, excluding gemtext parsing (#26, #107)
+- Due to that same change, less memory is used per-page (#26, #107)
+
 
 ## [1.7.2] - 2020-12-21
 ### Fixed

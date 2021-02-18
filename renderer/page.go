@@ -24,12 +24,29 @@ var ErrBadMediatype = errors.New("displayable mediatype is not handled in the co
 // isUTF8 returns true for charsets that are compatible with UTF-8 and don't need to be decoded.
 func isUTF8(charset string) bool {
 	utfCharsets := []string{"", "utf-8", "us-ascii"}
-	for i := range utfCharsets {
-		if strings.ToLower(charset) == utfCharsets[i] {
+	for _, s := range utfCharsets {
+		if charset == s || strings.ToLower(charset) == s {
 			return true
 		}
 	}
 	return false
+}
+
+// decodeMeta returns the output of mime.ParseMediaType, but handles the empty
+// META which is equal to "text/gemini; charset=utf-8" according to the spec.
+func decodeMeta(meta string) (string, map[string]string, error) {
+	if meta == "" {
+		return "text/gemini", make(map[string]string), nil
+	}
+
+	mediatype, params, err := mime.ParseMediaType(meta)
+
+	if mediatype != "" && err != nil {
+		// The mediatype was successfully decoded but there's some error with the params
+		// Ignore the params
+		return mediatype, make(map[string]string), nil
+	}
+	return mediatype, params, err
 }
 
 // CanDisplay returns true if the response is supported by Amfora
@@ -40,7 +57,7 @@ func CanDisplay(res *gemini.Response) bool {
 		// No content
 		return false
 	}
-	mediatype, params, err := mime.ParseMediaType(res.Meta)
+	mediatype, params, err := decodeMeta(res.Meta)
 	if err != nil {
 		return false
 	}
@@ -58,14 +75,14 @@ func CanDisplay(res *gemini.Response) bool {
 
 // MakePage creates a formatted, rendered Page from the given network response and params.
 // You must set the Page.Width value yourself.
-func MakePage(url string, res *gemini.Response, width, leftMargin int, proxied bool) (*structs.Page, error) {
+func MakePage(url string, res *gemini.Response, width int, proxied bool) (*structs.Page, error) {
 	if !CanDisplay(res) {
 		return nil, ErrCantDisplay
 	}
 
 	buf := new(bytes.Buffer)
 	_, err := io.CopyN(buf, res.Body, viper.GetInt64("a-general.page_max_size")+1)
-	res.Body.Close()
+
 	if err == nil {
 		// Content was larger than max size
 		return nil, ErrTooLarge
@@ -82,7 +99,7 @@ func MakePage(url string, res *gemini.Response, width, leftMargin int, proxied b
 	}
 	// Otherwise, the error is EOF, which is what we want.
 
-	mediatype, params, _ := mime.ParseMediaType(res.Meta)
+	mediatype, params, _ := decodeMeta(res.Meta)
 
 	// Convert content first
 	var utfText string
@@ -101,7 +118,7 @@ func MakePage(url string, res *gemini.Response, width, leftMargin int, proxied b
 	}
 
 	if mediatype == "text/gemini" {
-		rendered, links := RenderGemini(utfText, width, leftMargin, proxied)
+		rendered, links := RenderGemini(utfText, width, proxied)
 		return &structs.Page{
 			Mediatype:    structs.TextGemini,
 			RawMediatype: mediatype,
@@ -119,7 +136,7 @@ func MakePage(url string, res *gemini.Response, width, leftMargin int, proxied b
 				RawMediatype: mediatype,
 				URL:          url,
 				Raw:          utfText,
-				Content:      RenderANSI(utfText, leftMargin),
+				Content:      RenderANSI(utfText),
 				Links:        []string{},
 				MadeAt:       time.Now(),
 			}, nil
@@ -131,7 +148,7 @@ func MakePage(url string, res *gemini.Response, width, leftMargin int, proxied b
 			RawMediatype: mediatype,
 			URL:          url,
 			Raw:          utfText,
-			Content:      RenderPlainText(utfText, leftMargin),
+			Content:      RenderPlainText(utfText),
 			Links:        []string{},
 			MadeAt:       time.Now(),
 		}, nil

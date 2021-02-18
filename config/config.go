@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/gdamore/tcell"
+	"github.com/gdamore/tcell/v2"
 	"github.com/makeworld-the-better-one/amfora/cache"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/rkoesters/xdg/basedir"
@@ -38,6 +38,7 @@ var bkmkDir string
 var bkmkPath string
 
 var DownloadsDir string
+var TempDownloadsDir string
 
 // Subscriptions
 var subscriptionDir string
@@ -45,6 +46,18 @@ var SubscriptionPath string
 
 // Command for opening HTTP(S) URLs in the browser, from "a-general.http" in config.
 var HTTPCommand []string
+
+type MediaHandler struct {
+	Cmd      []string
+	NoPrompt bool
+	Stream   bool
+}
+
+var MediaHandlers = make(map[string]MediaHandler)
+
+// Controlled by "a-general.scrollbar" in config
+// Defaults to ScrollBarAuto on an invalid value
+var ScrollBar cview.ScrollBarVisibility
 
 func Init() error {
 
@@ -191,9 +204,11 @@ func Init() error {
 	viper.SetDefault("a-general.left_margin", 0.15)
 	viper.SetDefault("a-general.max_width", 100)
 	viper.SetDefault("a-general.downloads", "")
+	viper.SetDefault("a-general.temp_downloads", "")
 	viper.SetDefault("a-general.page_max_size", 2097152)
 	viper.SetDefault("a-general.page_max_time", 10)
 	viper.SetDefault("a-general.emoji_favicons", false)
+	viper.SetDefault("a-general.scrollbar", "auto")
 	viper.SetDefault("keybindings.bind_reload", []string{"R", "Ctrl-R"})
 	viper.SetDefault("keybindings.bind_home", "Backspace")
 	viper.SetDefault("keybindings.bind_bookmarks", "Ctrl-B")
@@ -289,6 +304,36 @@ func Init() error {
 		DownloadsDir = dDir
 	}
 
+	// Setup temporary downloads dir
+	if viper.GetString("a-general.temp_downloads") == "" {
+		TempDownloadsDir = filepath.Join(os.TempDir(), "amfora_temp")
+
+		// Make sure it exists
+		err = os.MkdirAll(TempDownloadsDir, 0755)
+		if err != nil {
+			return fmt.Errorf("temp downloads path could not be created: %s", TempDownloadsDir)
+		}
+	} else {
+		// Validate path
+		dDir := viper.GetString("a-general.temp_downloads")
+		di, err := os.Stat(dDir)
+		if err == nil {
+			if !di.IsDir() {
+				return fmt.Errorf("temp downloads path specified is not a directory: %s", dDir)
+			}
+		} else if os.IsNotExist(err) {
+			// Try to create path
+			err = os.MkdirAll(dDir, 0755)
+			if err != nil {
+				return fmt.Errorf("temp downloads path could not be created: %s", dDir)
+			}
+		} else {
+			// Some other error
+			return fmt.Errorf("couldn't access temp downloads directory: %s", dDir)
+		}
+		TempDownloadsDir = dDir
+	}
+
 	// Setup cache from config
 	cache.SetMaxSize(viper.GetInt("cache.max_size"))
 	cache.SetMaxPages(viper.GetInt("cache.max_pages"))
@@ -320,6 +365,46 @@ func Init() error {
 		// Split on spaces to maintain compatibility with old versions
 		// The new better way to is to just define a string array in config
 		HTTPCommand = strings.Fields(viper.GetString("a-general.http"))
+	}
+
+	var rawMediaHandlers []struct {
+		Cmd      []string `mapstructure:"cmd"`
+		Types    []string `mapstructure:"types"`
+		NoPrompt bool     `mapstructure:"no_prompt"`
+		Stream   bool     `mapstructure:"stream"`
+	}
+	err = viper.UnmarshalKey("mediatype-handlers", &rawMediaHandlers)
+	if err != nil {
+		return fmt.Errorf("couldn't parse mediatype-handlers section in config: %w", err)
+	}
+	for _, rawMediaHandler := range rawMediaHandlers {
+		if len(rawMediaHandler.Cmd) == 0 {
+			return fmt.Errorf("empty cmd array in mediatype-handlers section")
+		}
+		if len(rawMediaHandler.Types) == 0 {
+			return fmt.Errorf("empty types array in mediatype-handlers section")
+		}
+
+		for _, typ := range rawMediaHandler.Types {
+			if _, ok := MediaHandlers[typ]; ok {
+				return fmt.Errorf("multiple mediatype-handlers defined for %v", typ)
+			}
+			MediaHandlers[typ] = MediaHandler{
+				Cmd:      rawMediaHandler.Cmd,
+				NoPrompt: rawMediaHandler.NoPrompt,
+				Stream:   rawMediaHandler.Stream,
+			}
+		}
+	}
+
+	// Parse scrollbar options
+	switch viper.GetString("a-general.scrollbar") {
+	case "never":
+		ScrollBar = cview.ScrollBarNever
+	case "always":
+		ScrollBar = cview.ScrollBarAlways
+	default:
+		ScrollBar = cview.ScrollBarAuto
 	}
 
 	return nil

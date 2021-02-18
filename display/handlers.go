@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/makeworld-the-better-one/amfora/cache"
@@ -90,12 +91,12 @@ func handleOther(u string) {
 }
 
 // handleFavicon handles getting and displaying a favicon.
-// `old` is the previous favicon for the tab.
-func handleFavicon(t *tab, host, old string) {
+func handleFavicon(t *tab, host string) {
 	defer func() {
 		// Update display if needed
-		if t.page.Favicon != old && isValidTab(t) {
-			rewriteTabRow()
+		if t.page.Favicon != "" && isValidTab(t) {
+			browser.SetTabLabel(strconv.Itoa(tabNumber(t)), makeTabLabel(t.page.Favicon))
+			App.Draw()
 		}
 	}()
 
@@ -117,7 +118,6 @@ func handleFavicon(t *tab, host, old string) {
 	}
 	if fav != "" {
 		t.page.Favicon = fav
-		rewriteTabRow()
 		return
 	}
 
@@ -136,7 +136,8 @@ func handleFavicon(t *tab, host, old string) {
 		cache.AddFavicon(host, cache.KnownNoFavicon)
 		return
 	}
-	if !strings.HasPrefix(res.Meta, "text/") {
+	if !strings.HasPrefix(res.Meta, "text/") && res.Meta != "" {
+		// Not a textual page
 		cache.AddFavicon(host, cache.KnownNoFavicon)
 		return
 	}
@@ -189,6 +190,21 @@ func handleAbout(t *tab, u string) (string, bool) {
 		return u, true
 	case "about:version":
 		temp := versionPage
+		setPage(t, &temp)
+		t.applyBottomBar()
+		return u, true
+	case "about:license":
+		temp := licensePage
+		setPage(t, &temp)
+		t.applyBottomBar()
+		return u, true
+	case "about:thanks":
+		temp := thanksPage
+		setPage(t, &temp)
+		t.applyBottomBar()
+		return u, true
+	case "about:about":
+		temp := aboutPage
 		setPage(t, &temp)
 		t.applyBottomBar()
 		return u, true
@@ -373,7 +389,7 @@ func handleURL(t *tab, u string, numRedirects int) (string, bool) {
 	res.Body = rr.NewRestartReader(res.Body)
 
 	if renderer.CanDisplay(res) {
-		page, err := renderer.MakePage(u, res, textWidth(), leftMargin(), usingProxy)
+		page, err := renderer.MakePage(u, res, textWidth(), usingProxy)
 		// Rendering may have taken a while, make sure tab is still valid
 		if !isValidTab(t) {
 			return ret("", false)
@@ -416,7 +432,16 @@ func handleURL(t *tab, u string, numRedirects int) (string, bool) {
 	// Handle each status code
 	switch res.Status {
 	case 10, 11:
-		userInput, ok := Input(res.Meta)
+		var userInput string
+		var ok bool
+
+		if res.Status == 10 {
+			// Regular input
+			userInput, ok = Input(res.Meta, false)
+		} else {
+			// Sensitive input
+			userInput, ok = Input(res.Meta, true)
+		}
 		if ok {
 			// Make another request with the query string added
 			parsed.RawQuery = gemini.QueryEscape(userInput)
